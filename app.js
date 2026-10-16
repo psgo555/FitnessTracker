@@ -10,12 +10,13 @@ const DEFAULT = {
   plan: null,    // {id, name, summary, days:[{name, focus, exercises:[{name, sets, repMin, repMax, rest, startWeight, inc, note}]}], nutrition, client, nextDay, source}
   chat: [],      // AI 教練對話（API messages 原樣保存）
   chatCtx: '',   // 上次送給 AI 的 App 資料，沒變就不重送
+  coachForm: { goal: '', exp: '', days: '', mins: '', equip: '', limits: '', extra: '' }, // 免費模式的問卷
   aiUsage: { usd: 0, calls: 0 },
 };
 let S = load();
 
 function normalize(d) {
-  return { ...structuredClone(DEFAULT), ...d, profile: { ...DEFAULT.profile, ...(d.profile || {}) }, aiUsage: { ...DEFAULT.aiUsage, ...(d.aiUsage || {}) } };
+  return { ...structuredClone(DEFAULT), ...d, coachForm: { ...DEFAULT.coachForm, ...(d.coachForm || {}) }, profile: { ...DEFAULT.profile, ...(d.profile || {}) }, aiUsage: { ...DEFAULT.aiUsage, ...(d.aiUsage || {}) } };
 }
 function load() {
   try {
@@ -251,10 +252,11 @@ const FEEL_LABEL = Object.fromEntries(FEELS);
 
 function suggestNext(pe, beforeDate) {
   const inc = pe.inc || incFor(pe.name);
-  const bw = isBW(pe.name);
   const u = repUnit(pe.name);
   const hist = sessionsOf(pe.name, beforeDate, 2);
   const last = hist[0];
+  // 徒手：動作庫標記、課表加重幅度為 0，或上次都是 0 kg 的自訂動作
+  const bw = isBW(pe.name) || pe.inc === 0 || (!EX_INFO[pe.name] && !!last && last.sets.every(s => !s.w));
   const t = { sets: pe.sets, reps: pe.repMin, weight: bw ? 0 : (pe.startWeight > 0 ? pe.startWeight : null), kind: 'start', reason: '' };
 
   if (!last) {
@@ -1011,9 +1013,9 @@ function renderSettings() {
   </div>
 
   <h2>AI 教練</h2><div class="card">
-    <div class="small muted" style="margin-bottom:10px">使用你自己的 Anthropic API key。key 只存在這支手機，不會放進備份檔。</div>
+    <div class="small muted" style="margin-bottom:10px">免費模式（複製貼上到 ChatGPT／Gemini／Claude）不需要 key。想在 App 裡直接對話才需要自己的 Anthropic API key（按用量付費），key 只存在這支手機，不會放進備份檔。</div>
     ${key ? `<div class="row"><div class="num">sk-…${esc(key.slice(-4))}</div><div class="spacer"></div><button class="danger" id="key-clear">移除 key</button></div>`
-      : `<button class="primary block" data-go="coach">設定 API key</button>`}
+      : `<button class="block" data-go="coach">到教練分頁</button>`}
     <div class="small muted" style="margin-top:10px">累計使用：${S.aiUsage.calls} 次，約 US$${S.aiUsage.usd.toFixed(2)}（估算，以 Anthropic 帳單為準）</div>
   </div>
 
