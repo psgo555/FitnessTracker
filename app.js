@@ -397,11 +397,19 @@ function currentWorkout() {
   return S.workouts.find(w => w.date === today()) || null;
 }
 
+const anyDone = w => w.exercises.some(e => e.sets.some(s => s.done));
+
 function startPlanDay(idx) {
   const day = S.plan.days[idx];
   const date = today();
-  const w = { id: uid(), date, planDay: { planId: S.plan.id, idx, name: day.name }, exercises: [] };
+  // 今天已有訓練：保留已打勾的動作，未動過的換成課表內容
+  let w = S.workouts.find(x => x.date === date);
+  if (w) w.exercises = w.exercises.filter(e => e.sets.some(s => s.done));
+  else { w = { id: uid(), date, exercises: [] }; S.workouts.push(w); }
+  w.planDay = { planId: S.plan.id, idx, name: day.name };
+  const have = new Set(w.exercises.map(e => e.name));
   for (const pe of day.exercises) {
+    if (have.has(pe.name)) continue;
     const t = suggestNext(pe, date);
     w.exercises.push({
       name: pe.name,
@@ -409,7 +417,6 @@ function startPlanDay(idx) {
       sets: Array.from({ length: t.sets }, () => ({ w: t.weight, r: t.reps, done: false })),
     });
   }
-  S.workouts.push(w);
   S.plan.nextDay = (idx + 1) % S.plan.days.length;
   editingId = null;
   save(); renderWorkout();
@@ -438,14 +445,29 @@ function planStartCard() {
   </div>`;
 }
 
+// 今天已經有訓練、但不是目前課表的內容（或還沒打勾任何一組）時，提供切換
+function planSwitchCard(w) {
+  const p = S.plan, nd = p.nextDay % p.days.length;
+  const fromPlan = w.planDay && w.planDay.planId === p.id;
+  const days = p.days.map((d, i) => ({ d, i })).filter(({ i }) => !(fromPlan && i === w.planDay.idx));
+  return `<div class="card">
+    <div class="small muted">${fromPlan ? '換成課表的另一天' : `套用課表「${esc(p.name)}」到今天`}</div>
+    <div class="chips wrap" style="margin-top:8px">${days.map(({ d, i }) => `<button class="chip ${i === nd && !fromPlan ? 'on' : ''}" data-act="start-day" data-idx="${i}">${fromPlan ? '改做' : '開始'} ${esc(d.name)}</button>`).join('')}</div>
+    ${anyDone(w) ? '<div class="small muted" style="margin-top:4px">已打勾的動作會保留。</div>' : ''}
+  </div>`;
+}
+
 function renderWorkout() {
   const el = $('#v-workout');
   const w = currentWorkout();
   $('#subtitle').textContent = w ? dateLabel(w.date) + (w.planDay ? ' · ' + w.planDay.name : '') : dateLabel(today());
   let h = '';
 
-  if (!w) h += planStartCard();
-  else {
+  const isToday = w && w.date === today() && !editingId;
+  const emptyToday = isToday && !w.exercises.length; // 例如按過「自由訓練」但還沒加動作
+  if (!w || emptyToday) h += planStartCard();
+  if (w && !emptyToday) {
+    if (isToday && S.plan && w.exercises.length && (!w.planDay || w.planDay.planId !== S.plan.id || !anyDone(w))) h += planSwitchCard(w);
     if (editingId && w.date !== today()) {
       h += `<div class="card row"><div><b>正在編輯 ${dateLabel(w.date)}</b></div><div class="spacer"></div>
         <button data-act="back-today">回到今天</button></div>`;
@@ -525,7 +547,7 @@ $('#v-workout').addEventListener('click', e => {
   const act = b.dataset.act;
   const w = currentWorkout();
   if (act === 'start') {
-    S.workouts.push({ id: uid(), date: today(), exercises: [] });
+    if (!S.workouts.some(x => x.date === today())) S.workouts.push({ id: uid(), date: today(), exercises: [] });
     editingId = null; save(); renderWorkout(); openExPicker();
   } else if (act === 'start-day') startPlanDay(+b.dataset.idx);
   else if (act === 'templates') openTemplates();
