@@ -1,5 +1,5 @@
 // 離線快取：頁面先試網路（3 秒逾時就用快取，健身房訊號差也能開），其他檔案先用快取
-const CACHE = 'fitlog-v3';
+const CACHE = 'fitlog-v4';
 const ASSETS = ['./', 'index.html', 'app.js', 'coach.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

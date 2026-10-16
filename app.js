@@ -8,15 +8,13 @@ const DEFAULT = {
   workouts: [],  // {id, date, planDay?, exercises:[{name, target?, feel?, pain?, sets:[{w, r, done}]}]}
   customEx: [],
   plan: null,    // {id, name, summary, days:[{name, focus, exercises:[{name, sets, repMin, repMax, rest, startWeight, inc, note}]}], nutrition, client, nextDay, source}
-  chat: [],      // AI 教練對話（API messages 原樣保存）
-  chatCtx: '',   // 上次送給 AI 的 App 資料，沒變就不重送
   coachForm: { goal: '', exp: '', days: '', mins: '', equip: '', limits: '', extra: '' }, // 免費模式的問卷
-  aiUsage: { usd: 0, calls: 0 },
 };
 let S = load();
 
 function normalize(d) {
-  return { ...structuredClone(DEFAULT), ...d, coachForm: { ...DEFAULT.coachForm, ...(d.coachForm || {}) }, profile: { ...DEFAULT.profile, ...(d.profile || {}) }, aiUsage: { ...DEFAULT.aiUsage, ...(d.aiUsage || {}) } };
+  const { chat, chatCtx, aiUsage, ...rest } = d; // 舊版付費 AI 對話的欄位，不再使用
+  return { ...structuredClone(DEFAULT), ...rest, coachForm: { ...DEFAULT.coachForm, ...(d.coachForm || {}) }, profile: { ...DEFAULT.profile, ...(d.profile || {}) } };
 }
 function load() {
   try {
@@ -997,7 +995,6 @@ $('#v-calc').addEventListener('input', e => {
 function renderSettings() {
   const p = S.profile;
   $('#subtitle').textContent = '';
-  const key = getApiKey();
   $('#v-settings').innerHTML = `<h2>個人資料</h2><div class="card" id="prof">
     <div class="grid3">
       <label class="field"><span>性別</span><select data-p="sex"><option value="m" ${p.sex === 'm' ? 'selected' : ''}>男</option><option value="f" ${p.sex === 'f' ? 'selected' : ''}>女</option></select></label>
@@ -1012,12 +1009,6 @@ function renderSettings() {
     </select></label>
   </div>
 
-  <h2>AI 教練</h2><div class="card">
-    <div class="small muted" style="margin-bottom:10px">免費模式（複製貼上到 ChatGPT／Gemini／Claude）不需要 key。想在 App 裡直接對話才需要自己的 Anthropic API key（按用量付費），key 只存在這支手機，不會放進備份檔。</div>
-    ${key ? `<div class="row"><div class="num">sk-…${esc(key.slice(-4))}</div><div class="spacer"></div><button class="danger" id="key-clear">移除 key</button></div>`
-      : `<button class="block" data-go="coach">到教練分頁</button>`}
-    <div class="small muted" style="margin-top:10px">累計使用：${S.aiUsage.calls} 次，約 US$${S.aiUsage.usd.toFixed(2)}（估算，以 Anthropic 帳單為準）</div>
-  </div>
 
   <h2>資料備份</h2><div class="card">
     <div class="small muted" style="margin-bottom:10px">資料只存在這支手機的瀏覽器裡。換手機或清除瀏覽器資料前，請先匯出備份。</div>
@@ -1060,11 +1051,8 @@ $('#v-settings').addEventListener('click', e => {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   } else if (id === 'imp') $('#imp-file').click();
-  else if (id === 'key-clear') {
-    if (!confirm('移除這支手機上的 API key？')) return;
-    setApiKey(''); renderSettings();
-  } else if (id === 'wipe') {
-    if (!confirm('確定清除所有訓練、身體數據、課表與教練對話？此動作無法復原。')) return;
+  else if (id === 'wipe') {
+    if (!confirm('確定清除所有訓練、身體數據與課表？此動作無法復原。')) return;
     if (!confirm('再確認一次：真的要全部刪除？')) return;
     S = structuredClone(DEFAULT); saveNow(true); toast('已清除'); renderSettings();
   }
@@ -1093,6 +1081,7 @@ function boot() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+  try { localStorage.removeItem('fitlog.apikey'); } catch (e) {} // 舊版付費模式留下的 key
   // 要求持久化儲存，降低瀏覽器自動清除資料的機率
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 }
