@@ -1,6 +1,6 @@
 // 離線快取：頁面先試網路（3 秒逾時就用快取，健身房訊號差也能開），其他檔案先用快取
-const CACHE = 'fitlog-v1';
-const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'fitlog-v2';
+const ASSETS = ['./', 'index.html', 'app.js', 'coach.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
