@@ -4,11 +4,12 @@
 const KEY = 'fitlog.v1';
 const DEFAULT = {
   profile: { sex: 'm', age: 30, height: 170, activity: 1.55, rest: 90, unit: 'kg' },
-  body: [],      // {id, date, weight, bodyfat, waist, chest, arm, hip, thigh}
+  body: [],      // {id, date, weight(練前), weightPost(練後), bodyfat, waist, chest, arm, hip, thigh}
+  daily: [],     // 每日腸胃與飲食：{date, gut, diarrhea, bloat, worstFood, note}
   workouts: [],  // {id, date, planDay?, exercises:[{name, target?, feel?, pain?, sets:[{w, r, done}]}]}
   customEx: [],
   plan: null,    // {id, name, summary, days:[{name, focus, exercises:[{name, sets, repMin, repMax, rest, startWeight, inc, note}]}], nutrition, client, nextDay, source}
-  coachForm: { goal: '', exp: '', days: '', mins: '', equip: '', limits: '', extra: '' }, // 免費模式的問卷
+  coachForm: { goal: '', exp: '', days: '', mins: '', equip: '', limits: '', diet: '', extra: '' }, // 免費模式的問卷
 };
 let S = load();
 
@@ -94,7 +95,8 @@ const ACTIVITY = [
   [1.9, '非常高', '體力勞動 + 每天訓練'],
 ];
 const METRICS = [
-  ['weight', '體重', 'kg'],
+  ['weight', '練前體重', 'kg'],
+  ['weightPost', '練後體重', 'kg'],
   ['bodyfat', '體脂', '%'],
   ['waist', '腰圍', 'cm'],
   ['chest', '胸圍', 'cm'],
@@ -271,6 +273,7 @@ function suggestNext(pe, beforeDate) {
   const extraSets = work.filter(s => s.r >= pe.repMin).length > pe.sets;
   const below = work.filter(s => s.r < pe.repMin).length >= Math.ceil(pe.sets / 2);
   t.weight = W;
+  t.basis = `依 ${dateLabel(last.date)} 紀錄：${last.sets.map(s => `${bw ? '' : fmt(s.w) + '×'}${s.r}`).join('、')}${last.feel && last.feel !== 'ok' ? `（感覺：${FEEL_LABEL[last.feel]}${last.pain ? '－' + last.pain : ''}）` : ''}`;
 
   if (last.feel === 'pain') {
     t.kind = 'down';
@@ -291,6 +294,7 @@ function suggestNext(pe, beforeDate) {
     const prevBelow = prev && prev.sets.filter(s => (s.w || 0) >= W - 0.01 && s.r < pe.repMin).length >= Math.ceil(pe.sets / 2);
     if (!bw && prevW === W && prevBelow) {
       t.kind = 'down'; t.weight = roundW(W * 0.9, inc);
+      t.basis += `；前一次 ${dateLabel(prev.date)}：${prev.sets.map(s => `${fmt(s.w)}×${s.r}`).join('、')}`;
       t.reason = `連續兩次沒做到 ${pe.repMin} ${u} → 減重約 10% 重新累積（停滯期很正常）`;
     } else {
       t.kind = 'hold';
@@ -443,7 +447,7 @@ function startPlanDay(idx) {
     const t = suggestNext(pe, date);
     w.exercises.push({
       name: pe.name,
-      target: { sets: t.sets, repMin: pe.repMin, repMax: pe.repMax, rest: pe.rest, weight: t.weight, reps: t.reps, kind: t.kind, reason: t.reason, note: pe.note || '' },
+      target: { sets: t.sets, repMin: pe.repMin, repMax: pe.repMax, rest: pe.rest, weight: t.weight, reps: t.reps, kind: t.kind, reason: t.reason, basis: t.basis || '', note: pe.note || '' },
       sets: Array.from({ length: t.sets }, () => ({ w: t.weight, r: t.reps, done: false })),
     });
   }
@@ -552,7 +556,7 @@ function exerciseCard(w, ex, ei) {
       <button class="icon ghost" data-act="ex-menu" data-ei="${ei}" aria-label="動作選項">⋯</button>
     </div>
     <div class="ex-meta">${meta}</div>`;
-  if (t && t.reason) h += `<div class="ex-reason ${t.kind}">${esc(t.reason)}${t.note ? `<div class="muted" style="margin-top:4px">要點：${esc(t.note)}</div>` : ''}</div>`;
+  if (t && t.reason) h += `<div class="ex-reason ${t.kind}">${esc(t.reason)}${t.basis ? `<div class="muted small" style="margin-top:4px">${esc(t.basis)}</div>` : ''}${t.note ? `<div class="muted" style="margin-top:4px">要點：${esc(t.note)}</div>` : ''}</div>`;
   h += `<div class="set-head"><span>組</span><span>${bw ? '負重 kg' : '重量 kg'}</span><span>次數</span><span></span></div>`;
   ex.sets.forEach((s, si) => {
     const ph = last && last.sets[si] ? last.sets[si] : (last ? last.sets[last.sets.length - 1] : null);
@@ -857,21 +861,91 @@ function beep() {
 }
 
 /* ---------- 身體數據 ---------- */
+// weight = 練前／早上體重（舊紀錄的 weight 也視為練前），weightPost = 練後體重
+// 每日腸胃與飲食另存在 S.daily：{date, gut:'good'|'ok'|'bad', diarrhea, bloat, worstFood, note}
+const GUT = [['good', '好'], ['ok', '普通'], ['bad', '不舒服']];
+const GUT_LABEL = Object.fromEntries(GUT);
+const FOOD_CATS = ['油炸', '乳製品', '辣', '生冷', '甜食／飲料', '豆類／易產氣', '麵食', '其他'];
+function dailySummary(d) {
+  if (!d) return '';
+  const parts = [];
+  if (d.gut) parts.push('胃' + GUT_LABEL[d.gut]);
+  if (d.diarrhea) parts.push('拉肚子');
+  if (d.bloat) parts.push('脹氣');
+  if (d.worstFood) parts.push('最不舒服：' + d.worstFood);
+  if (d.note) parts.push('飲食：' + d.note);
+  return parts.join('、');
+}
+
+// 週平均（週一開始），只用練前體重
+function weekStartOf(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+  return isoDate(dt);
+}
+function weeklyAverages(n = 4) {
+  const out = [];
+  let start = weekStartOf(today());
+  for (let i = 0; i < n; i++) {
+    const [y, m, d] = start.split('-').map(Number);
+    const end = isoDate(new Date(y, m - 1, d + 6));
+    const vals = S.body.filter(b => b.weight != null && b.date >= start && b.date <= end).map(b => b.weight);
+    out.push({ start, end, count: vals.length, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null });
+    start = isoDate(new Date(y, m - 1, d - 7));
+  }
+  return out; // [本週, 上週, …]
+}
+
 let bodyMetric = 'weight', bodyRange = 90;
+let dailyDraft = null; // 表單上正在編輯的腸胃紀錄
+
+function dailyFormHtml(d) {
+  const chip = (attr, val, on, label, cls = '') => `<button class="chip ${on ? 'on' + cls : ''}" ${attr}="${val}">${label}</button>`;
+  return `<div class="small muted" style="margin:2px 0 6px">胃的狀況</div>
+    <div class="chips wrap">${GUT.map(([k, l]) => chip('data-gut', k, d.gut === k, l, k === 'bad' ? ' danger' : k === 'ok' ? ' warn' : '')).join('')}</div>
+    <div class="chips wrap" style="margin-top:6px">
+      ${chip('data-flag', 'diarrhea', d.diarrhea, '拉肚子', ' danger')}${chip('data-flag', 'bloat', d.bloat, '脹氣', ' warn')}
+    </div>
+    <div class="small muted" style="margin:8px 0 6px">最不舒服的食物類別（可不選）</div>
+    <div class="chips wrap">${FOOD_CATS.map(f => chip('data-food', f, d.worstFood === f, f, ' warn')).join('')}</div>
+    <label class="field" style="margin-top:8px"><span>一句話飲食描述（可不填）</span>
+      <input id="d-note" value="${esc(d.note || '')}" placeholder="例如：早餐蛋餅、午餐雞腿飯、晚上吃比較少"></label>`;
+}
+
 function renderBody() {
   const el = $('#v-body');
   $('#subtitle').textContent = S.body.length ? `${S.body.length} 筆紀錄` : '';
   const t = today();
   const existing = S.body.find(b => b.date === t);
+  dailyDraft = { ...(S.daily.find(d => d.date === t) || {}) };
   let h = `<div class="card">
-    <div class="row" style="margin-bottom:10px"><b>記錄</b><div class="spacer"></div>
+    <div class="row" style="margin-bottom:10px"><b>今天的紀錄</b><div class="spacer"></div>
       <input type="date" id="b-date" value="${t}" style="width:auto;min-height:40px"></div>
+    <div id="d-form">${dailyFormHtml(dailyDraft)}</div>
+    <div class="small muted" style="margin:14px 0 6px">身體數據（只填需要的）</div>
     <div class="grid2" id="b-form">
       ${METRICS.map(([k, l, u]) => `<label class="field"><span>${l} (${u})</span>
         <input class="num" inputmode="decimal" data-k="${k}" value="${existing && existing[k] != null ? existing[k] : ''}" placeholder="${latest(k) ?? ''}"></label>`).join('')}
     </div>
     <button class="primary block" id="b-save" style="margin-top:12px">儲存</button>
-    <div class="small muted" style="margin-top:6px">只填需要的欄位即可；同一天再存會更新該天資料。</div>
+    <div class="small muted" style="margin-top:6px">沒練的日子，早上量的體重填在「練前體重」。同一天再存會更新該天資料。</div>
+  </div>`;
+
+  // 週平均（只用練前）
+  const wk = weeklyAverages(4);
+  const [cur, prev] = wk;
+  const diff = cur.avg != null && prev.avg != null ? cur.avg - prev.avg : null;
+  const md = s => { const [, m, d] = s.split('-'); return `${+m}/${+d}`; };
+  h += `<h2>練前體重週平均</h2><div class="card">
+    <div class="row">
+      <div class="stat"><span class="l">本週（${md(cur.start)}–${md(cur.end)}）</span><span class="v num">${cur.avg != null ? fmt(cur.avg) : '—'}<span class="u">kg</span></span><span class="small muted">${cur.count} 天</span></div>
+      <div class="spacer"></div>
+      <div class="stat" style="text-align:right"><span class="l">比上週</span>
+        <span class="v num" style="font-size:22px">${diff == null ? '—' : (diff > 0 ? '+' : '') + fmt(diff, 2)}<span class="u">kg</span></span>
+        <span class="small muted">上週 ${prev.avg != null ? fmt(prev.avg) + ' kg' : '無資料'}</span></div>
+    </div>
+    ${wk.some(w => w.avg != null) ? `<div class="small muted num" style="margin-top:10px">${wk.slice().reverse().map(w => `${md(w.start)} 週：${w.avg != null ? fmt(w.avg) : '—'}`).join(' · ')}</div>` : ''}
   </div>`;
 
   const pts = S.body.filter(b => b[bodyMetric] != null).sort((a, b) => a.date.localeCompare(b.date));
@@ -895,37 +969,67 @@ function renderBody() {
     <div class="chart">${chartSvg(shown, unit)}</div>
   </div>`;
 
-  const list = S.body.slice().sort((a, b) => b.date.localeCompare(a.date));
+  // 紀錄：身體數據與腸胃紀錄依日期合併顯示
+  const dates = [...new Set([...S.body.map(b => b.date), ...S.daily.map(d => d.date)])].sort().reverse();
   h += `<h2>紀錄</h2>`;
-  if (!list.length) h += `<div class="card empty">還沒有身體數據</div>`;
-  else h += `<div class="card" style="padding:4px 14px">${list.slice(0, 100).map(b => `<div class="list-item">
-      <div style="min-width:0"><b>${dateLabel(b.date)}</b>
-      <div class="small muted num">${METRICS.filter(([k]) => b[k] != null).map(([k, l, u]) => `${l} ${fmt(b[k])}${u}`).join(' · ')}</div></div>
-      <div class="spacer"></div><button class="icon ghost danger" data-del="${b.id}" aria-label="刪除">✕</button></div>`).join('')}</div>`;
+  if (!dates.length) h += `<div class="card empty">還沒有紀錄</div>`;
+  else h += `<div class="card" style="padding:4px 14px">${dates.slice(0, 100).map(date => {
+      const b = S.body.find(x => x.date === date), d = S.daily.find(x => x.date === date);
+      const metrics = b ? METRICS.filter(([k]) => b[k] != null).map(([k, l, u]) => `${l} ${fmt(b[k])}${u}`).join(' · ') : '';
+      return `<div class="list-item">
+      <div style="min-width:0"><b>${dateLabel(date)}</b>
+      ${metrics ? `<div class="small muted num">${metrics}</div>` : ''}
+      ${d ? `<div class="small ${d.gut === 'bad' || d.diarrhea ? '' : 'muted'}" style="${d.gut === 'bad' || d.diarrhea ? 'color:var(--warn)' : ''}">${esc(dailySummary(d))}</div>` : ''}</div>
+      <div class="spacer"></div><button class="icon ghost danger" data-del="${date}" aria-label="刪除">✕</button></div>`;
+    }).join('')}</div>`;
   el.innerHTML = h;
 }
+
+function loadDateIntoForm(date) {
+  const rec = S.body.find(b => b.date === date);
+  document.querySelectorAll('#b-form input').forEach(i => i.value = rec && rec[i.dataset.k] != null ? rec[i.dataset.k] : '');
+  dailyDraft = { ...(S.daily.find(d => d.date === date) || {}) };
+  $('#d-form').innerHTML = dailyFormHtml(dailyDraft);
+}
+
 $('#v-body').addEventListener('click', e => {
   const t = e.target.closest('button');
   if (!t) return;
+  if (t.dataset.gut || t.dataset.flag || t.dataset.food) {
+    dailyDraft.note = $('#d-note').value;
+    if (t.dataset.gut) dailyDraft.gut = dailyDraft.gut === t.dataset.gut ? '' : t.dataset.gut;
+    if (t.dataset.flag) dailyDraft[t.dataset.flag] = !dailyDraft[t.dataset.flag];
+    if (t.dataset.food) dailyDraft.worstFood = dailyDraft.worstFood === t.dataset.food ? '' : t.dataset.food;
+    $('#d-form').innerHTML = dailyFormHtml(dailyDraft);
+    return;
+  }
   if (t.id === 'b-save') {
     const date = $('#b-date').value || today();
     const vals = {};
     document.querySelectorAll('#b-form input').forEach(i => { const v = num(i.value); if (v != null) vals[i.dataset.k] = v; });
-    if (!Object.keys(vals).length) { toast('至少填一個欄位'); return; }
-    const rec = S.body.find(b => b.date === date);
-    if (rec) Object.assign(rec, vals); else S.body.push({ id: uid(), date, ...vals });
+    const note = $('#d-note').value.trim();
+    const daily = { gut: dailyDraft.gut || '', diarrhea: !!dailyDraft.diarrhea, bloat: !!dailyDraft.bloat, worstFood: dailyDraft.worstFood || '', note };
+    const hasDaily = daily.gut || daily.diarrhea || daily.bloat || daily.worstFood || daily.note;
+    if (!Object.keys(vals).length && !hasDaily) { toast('至少填一個欄位'); return; }
+    if (Object.keys(vals).length) {
+      const rec = S.body.find(b => b.date === date);
+      if (rec) Object.assign(rec, vals); else S.body.push({ id: uid(), date, ...vals });
+    }
+    const di = S.daily.findIndex(d => d.date === date);
+    if (hasDaily) { if (di >= 0) S.daily[di] = { date, ...daily }; else S.daily.push({ date, ...daily }); }
+    else if (di >= 0) S.daily.splice(di, 1);
     save(); toast('已儲存'); renderBody();
   } else if (t.dataset.metric) { bodyMetric = t.dataset.metric; renderBody(); }
   else if (t.dataset.range != null) { bodyRange = +t.dataset.range; renderBody(); }
   else if (t.dataset.del) {
-    if (!confirm('刪除這筆紀錄？')) return;
-    S.body = S.body.filter(b => b.id !== t.dataset.del); save(); renderBody();
+    if (!confirm(`刪除 ${dateLabel(t.dataset.del)} 的身體數據與腸胃紀錄？`)) return;
+    S.body = S.body.filter(b => b.date !== t.dataset.del);
+    S.daily = S.daily.filter(d => d.date !== t.dataset.del);
+    save(); renderBody();
   }
 });
 $('#v-body').addEventListener('change', e => {
-  if (e.target.id !== 'b-date') return;
-  const rec = S.body.find(b => b.date === e.target.value);
-  document.querySelectorAll('#b-form input').forEach(i => i.value = rec && rec[i.dataset.k] != null ? rec[i.dataset.k] : '');
+  if (e.target.id === 'b-date') loadDateIntoForm(e.target.value);
 });
 
 function chartSvg(pts, unit) {

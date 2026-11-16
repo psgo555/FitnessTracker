@@ -16,7 +16,18 @@ function appContext() {
   }).filter(Boolean);
   L.push('最新身體數據：' + (bodyLatest.join('、') || '尚未記錄'));
   const ws = S.body.filter(b => b.weight != null && b.date >= daysAgo(30)).sort((a, b) => a.date.localeCompare(b.date));
-  if (ws.length >= 2) L.push(`近 30 天體重變化：${fmt(ws[ws.length - 1].weight - ws[0].weight)} kg`);
+  if (ws.length >= 2) L.push(`近 30 天練前體重變化：${fmt(ws[ws.length - 1].weight - ws[0].weight)} kg`);
+  const wk = weeklyAverages(4);
+  if (wk.some(w => w.avg != null)) {
+    const d = wk[0].avg != null && wk[1].avg != null ? wk[0].avg - wk[1].avg : null;
+    L.push(`練前體重週平均（新到舊）：${wk.map(w => `${w.start} 週 ${w.avg != null ? fmt(w.avg) + ' kg（' + w.count + ' 天）' : '無資料'}`).join('；')}${d != null ? `；本週比上週 ${d > 0 ? '+' : ''}${fmt(d, 2)} kg` : ''}`);
+  }
+  const posts = S.body.filter(b => b.weightPost != null && b.date >= daysAgo(14)).sort((a, b) => b.date.localeCompare(a.date));
+  if (posts.length) L.push(`近 14 天練前／練後體重：${posts.map(b => `${b.date} ${b.weight != null ? fmt(b.weight) : '—'}／${fmt(b.weightPost)} kg`).join('；')}`);
+  const days = S.daily.filter(d => d.date >= daysAgo(14)).sort((a, b) => b.date.localeCompare(a.date));
+  L.push(`近 14 天腸胃與飲食：${days.length ? '' : '尚未記錄'}`);
+  for (const d of days) L.push(`  ${d.date}：${dailySummary(d)}`);
+  if (days.length) L.push(`  （14 天中：胃不舒服 ${days.filter(d => d.gut === 'bad').length} 天、拉肚子 ${days.filter(d => d.diarrhea).length} 天、脹氣 ${days.filter(d => d.bloat).length} 天）`);
   const en = energy();
   if (en) L.push(`估算：BMI ${fmt(en.bmi)}、BMR ${fmt(en.bmr, 0)} kcal、TDEE ${fmt(en.tdee, 0)} kcal`);
   if (S.plan) {
@@ -81,6 +92,7 @@ ${task}
 每週可訓練：${v(f.days)} 天，每次約 ${v(f.mins)} 分鐘
 器材：${v(f.equip)}
 傷病或不適部位：${f.limits.trim() || '無'}
+飲食限制與體質：${(f.diet || '').trim() || '無'}
 其他需求：${f.extra.trim() || '無'}
 
 【健身 App 自動整理的資料】
@@ -135,6 +147,7 @@ function freeHtml() {
     <div class="small muted" style="margin:4px 0 10px">身高、體重、體脂、訓練紀錄 App 會自動附上，不用再打。</div>
     <div class="grid2">${FORM_FIELDS.map(sel).join('')}</div>
     <label class="field" style="margin-top:10px"><span>傷病或不適部位（沒有就空白）</span><input data-cf="limits" value="${esc(f.limits)}" placeholder="例如：右肩前側推東西會痛"></label>
+    <label class="field" style="margin-top:10px"><span>飲食限制與體質</span><input data-cf="diet" value="${esc(f.diet || '')}" placeholder="例如：不吃牛肉、不喝乳清、腸胃差易脹氣、吃不胖"></label>
     <label class="field" style="margin-top:10px"><span>其他需求</span><input data-cf="extra" value="${esc(f.extra)}" placeholder="例如：想練翹臀、不想做深蹲"></label>
   </div>
 
