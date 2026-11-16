@@ -1,0 +1,31 @@
+{
+  "plan_name": "增肌全身 A/B/C 輪替（每週 3–5 次）",
+  "summary": "三份全身課表依序輪流做（A→B→C→A…），一週練 3 次就各做一次，練 4–5 次就繼續往下輪，不用固定星期幾。每次約 50–60 分鐘：先 5–10 分鐘熱身，第一個動作先用空槓或輕重量做 1–2 組暖身。前 2 週重量寧輕勿重，先把動作做標準，App 會依紀錄自動加重。",
+  "client_profile": {"goal": "增肌，體重 57–59 kg → 65–70 kg", "experience": "新手", "days_per_week": 4, "session_minutes": 60, "equipment": "健身房", "limitations": "無"},
+  "days": [
+    {"name": "A 深蹲＋推", "focus": "腿、胸、背、肩", "exercises": [
+      {"name": "槓鈴深蹲", "sets": 3, "rep_min": 6, "rep_max": 10, "rest_sec": 150, "start_weight_kg": 0, "increment_kg": 5, "note": "胸口挺直，膝蓋對齊腳尖，蹲到大腿約與地面平行"},
+      {"name": "槓鈴臥推", "sets": 3, "rep_min": 6, "rep_max": 10, "rest_sec": 150, "start_weight_kg": 0, "increment_kg": 2.5, "note": "肩胛收緊下沉，槓下放到胸口下緣，手肘約 45°"},
+      {"name": "滑輪下拉", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2.5, "note": "先沉肩再拉，拉到上胸，不要往後躺"},
+      {"name": "啞鈴肩推", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2, "note": "坐姿有靠背，下放到耳朵高度，不要聳肩"},
+      {"name": "腿彎舉", "sets": 2, "rep_min": 10, "rep_max": 15, "rest_sec": 60, "start_weight_kg": 0, "increment_kg": 2.5, "note": "放下時慢慢控制 2 秒"},
+      {"name": "捲腹", "sets": 2, "rep_min": 12, "rep_max": 20, "rest_sec": 45, "start_weight_kg": 0, "increment_kg": 0, "note": "不要用手拉頭，用腹部把肩膀捲起來"}
+    ]},
+    {"name": "B 硬舉＋拉", "focus": "臀腿後側、背、胸、手臂", "exercises": [
+      {"name": "羅馬尼亞硬舉", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_sec": 120, "start_weight_kg": 0, "increment_kg": 5, "note": "臀部往後推、背打直，槓貼著腿走，感覺大腿後側拉長"},
+      {"name": "坐姿划船", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2.5, "note": "挺胸，用手肘往後帶，夾背停 1 秒"},
+      {"name": "上斜啞鈴臥推", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2, "note": "椅背約 30°，肩胛收緊"},
+      {"name": "腿推機", "sets": 3, "rep_min": 10, "rep_max": 15, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 5, "note": "下背貼緊椅背，膝蓋不要完全鎖死"},
+      {"name": "側平舉", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_sec": 60, "start_weight_kg": 0, "increment_kg": 2, "note": "手肘微彎，舉到肩膀高度，肩膀遠離耳朵"},
+      {"name": "啞鈴彎舉", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_sec": 60, "start_weight_kg": 0, "increment_kg": 2, "note": "手肘固定在身體兩側，不要晃身體"}
+    ]},
+    {"name": "C 單腳＋手臂", "focus": "臀腿、胸、背、三頭、核心", "exercises": [
+      {"name": "保加利亞分腿蹲", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2, "note": "後腳放椅子上，前腳膝蓋對齊腳尖，每邊各做一組"},
+      {"name": "機械胸推", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2.5, "note": "肩胛貼椅背，推到手臂快打直即可"},
+      {"name": "啞鈴單臂划船", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 2, "note": "手扶椅子、背打平，把啞鈴拉向髖部"},
+      {"name": "臀推", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_sec": 90, "start_weight_kg": 0, "increment_kg": 5, "note": "上背靠椅子，頂到最高時夾臀停 1 秒，下巴微收"},
+      {"name": "三頭下壓", "sets": 2, "rep_min": 10, "rep_max": 15, "rest_sec": 60, "start_weight_kg": 0, "increment_kg": 2.5, "note": "手肘夾在身體兩側，只動前臂"},
+      {"name": "棒式", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_sec": 45, "start_weight_kg": 0, "increment_kg": 0, "note": "次數欄填秒數；身體成一直線，不要塌腰"}
+    ]}
+  ]
+}
