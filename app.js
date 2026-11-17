@@ -1148,6 +1148,25 @@ $('#v-calc').addEventListener('input', e => {
 });
 
 /* ---------- 設定 ---------- */
+// 同一份程式放在兩個地方：KATACHI 網站的 /app/（新家），以及 GitHub Pages（舊網址）
+const KATACHI_APP_URL = 'https://katachi.runasp.net/app/';
+const onKatachi = () => location.pathname.startsWith('/app/') && !location.hostname.endsWith('github.io');
+function katachiCard() {
+  if (onKatachi()) return `<h2>同步到 KATACHI</h2><div class="card">
+    <div class="small muted" style="margin-bottom:10px">把這支手機上的訓練、身體數據與腸胃紀錄送到 KATACHI 帳號，用網站看統計與肌群分析。要先登入 KATACHI；已經同步過的訓練日期會自動略過。</div>
+    <button class="primary block" data-href="/training-log/import?from=app">前往同步</button>
+  </div>`;
+  if (location.hostname.endsWith('github.io')) return `<h2>App 已搬家</h2><div class="card">
+    <div class="small" style="margin-bottom:10px">健身紀錄已搬到 KATACHI 網站，之後在新網址可以一鍵同步。資料不會自動跟過去，請照順序做一次：</div>
+    <ol class="small" style="margin:0 0 10px;padding-left:20px;line-height:1.9">
+      <li>按下方「匯出備份」存成檔案</li>
+      <li>打開新網址，到「個人 → 匯入備份」選剛剛的檔案</li>
+      <li>在新網址加到主畫面，之後都用新的</li>
+    </ol>
+    <button class="primary block" data-href="${KATACHI_APP_URL}">打開新網址</button>
+  </div>`;
+  return '';
+}
 function renderSettings() {
   const p = S.profile;
   $('#subtitle').textContent = '';
@@ -1165,6 +1184,7 @@ function renderSettings() {
     </select></label>
   </div>
 
+  ${katachiCard()}
 
   <h2>資料備份</h2><div class="card">
     <div class="small muted" style="margin-bottom:10px">資料只存在這支手機的瀏覽器裡。換手機或清除瀏覽器資料前，請先匯出備份。</div>
@@ -1200,6 +1220,7 @@ $('#v-settings').addEventListener('change', async e => {
 });
 $('#v-settings').addEventListener('click', e => {
   const id = e.target.id;
+  if (e.target.dataset.href) { saveNow(); location.href = e.target.dataset.href; return; }
   if (id === 'exp') {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
